@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import CreateTicket from "./CreateTicket";
+import CreateTicket from "./createTicket";
 
 
 const initialForm = {
@@ -9,24 +9,29 @@ const initialForm = {
   confirmPassword: "",
 };
 
+const validRoles = ["customer", "agent", "admin"];
+
+function normalizeStatus(status) {
+  return String(status || "").trim().toLowerCase().replace(/_/g, " ");
+}
+
 
 function getSavedUser() {
   try {
     const token = sessionStorage.getItem("token");
     const savedUser = sessionStorage.getItem("user");
 
-    if (token && savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      const role = String(parsedUser?.role || "").trim().toLowerCase();
+    if (!token || !savedUser) return null;
 
-      if (["customer", "agent", "admin"].includes(role)) {
-        return { ...parsedUser, role };
-      }
+    const parsedUser = JSON.parse(savedUser);
+    const role = String(parsedUser?.role || "").trim().toLowerCase();
 
-      // Clear stale/incomplete session data so the user can sign in again.
-      sessionStorage.removeItem("token");
-      sessionStorage.removeItem("user");
+    if (validRoles.includes(role)) {
+      return { ...parsedUser, role };
     }
+
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
   } catch {
     sessionStorage.removeItem("token");
     sessionStorage.removeItem("user");
@@ -47,7 +52,7 @@ function Dashboard({ user, onLogout, onCreateTicket }) {
   const [ticketsLoading, setTicketsLoading] = useState(true);
   const [ticketsError, setTicketsError] = useState("");
 
-  const role = String(user.role || "customer").toLowerCase();
+  const role = String(user.role || "customer").trim().toLowerCase();
 
   useEffect(() => {
     let cancelled = false;
@@ -86,9 +91,26 @@ function Dashboard({ user, onLogout, onCreateTicket }) {
 
   const ticketStats = [
     { label: "Total Tickets", value: tickets.length, color: "text-blue-600" },
-    { label: "Open Tickets", value: tickets.filter(t => String(t.status || "").toLowerCase() === "open").length, color: "text-amber-600" },
-    { label: "In Progress", value: tickets.filter(t => String(t.status || "").toLowerCase() === "in progress").length, color: "text-violet-600" },
-    { label: "Resolved", value: tickets.filter(t => String(t.status || "").toLowerCase() === "resolved").length, color: "text-green-600" },
+    {
+      label: "Open Tickets",
+      value: tickets.filter((ticket) => normalizeStatus(ticket.status) === "open")
+        .length,
+      color: "text-amber-600",
+    },
+    {
+      label: "In Progress",
+      value: tickets.filter(
+        (ticket) => normalizeStatus(ticket.status) === "in progress"
+      ).length,
+      color: "text-violet-600",
+    },
+    {
+      label: "Resolved",
+      value: tickets.filter(
+        (ticket) => normalizeStatus(ticket.status) === "resolved"
+      ).length,
+      color: "text-green-600",
+    },
   ];
 
   function getStatusStyle(status) {
@@ -98,7 +120,7 @@ function Dashboard({ user, onLogout, onCreateTicket }) {
       resolved: "bg-green-100 text-green-700",
       closed: "bg-slate-100 text-slate-700",
     };
-    return styles[String(status || "").toLowerCase()] || "bg-slate-100 text-slate-700";
+    return styles[normalizeStatus(status)] || "bg-slate-100 text-slate-700";
   }
 
   function getPriorityStyle(priority) {
@@ -235,7 +257,9 @@ function Dashboard({ user, onLogout, onCreateTicket }) {
               </p>
             </div>
             <span className="text-sm text-slate-500">
-              {role === "customer" ? `${tickets.length} tickets` : "Role-specific tickets"}
+              {role === "customer"
+                ? `${tickets.length} tickets`
+                : "Role-specific tickets"}
             </span>
           </div>
 
@@ -284,7 +308,9 @@ function Dashboard({ user, onLogout, onCreateTicket }) {
         </section>
 
         <p className="mt-6 text-xs text-slate-400">
-          {role === "customer" ? "Ticket information is  from my database account." : "Role-specific ticket data will be connected in a later step."}
+          {role === "customer"
+            ? "Ticket information is from my database account."
+            : "Role-specific ticket data will be connected in a later step."}
         </p>
       </main>
     </div>
@@ -292,10 +318,8 @@ function Dashboard({ user, onLogout, onCreateTicket }) {
 }
 
 export default function App() {
-  const [page, setPage] = useState(() =>
-    getSavedUser() ? "dashboard" : "login"
-  );
-  const [user, setUser] = useState(() => getSavedUser());
+  const [user, setUser] = useState(getSavedUser);
+  const [page, setPage] = useState(() => (user ? "dashboard" : "login"));
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -377,13 +401,12 @@ export default function App() {
 
     
       const normalizedRole = String(data.user.role || "").trim().toLowerCase();
-      if (!["customer", "agent", "admin"].includes(normalizedRole)) {
+      if (!validRoles.includes(normalizedRole)) {
         setError(
           "Your login response does not include a valid role. Check that the backend returns the user's database role."
         );
         return;
       }
-
       const loggedInUser = { ...data.user, role: normalizedRole };
       sessionStorage.setItem("token", data.token);
       sessionStorage.setItem("user", JSON.stringify(loggedInUser));
@@ -411,9 +434,6 @@ export default function App() {
     return (
       <CreateTicket
         onBack={() => setPage("dashboard")}
-        onCreated={() => {
-        
-        }}
       />
     );
   }

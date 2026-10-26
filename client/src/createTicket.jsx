@@ -2,24 +2,26 @@ import { useState } from "react";
 
 const API_URL = "http://localhost:5000/api/tickets";
 
-export default function createTicket({ onBack, onCreated }) {
-  const [form, setForm] = useState({
-    subject: "",
-    description: "",
-    category: "Technical",
-    priority: "medium",
-  });
+const initialForm = {
+  subject: "",
+  description: "",
+  category: "Technical",
+  priority: "medium",
+};
+
+export default function CreateTicket({ onBack }) {
+  const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  function handleChange(e) {
-    const { name, value } = e.target;
-    setForm((current) => ({ ...current, [name]: value }));
+  function handleChange(event) {
+    const { name, value } = event.target;
+    setForm((currentForm) => ({ ...currentForm, [name]: value }));
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleSubmit(event) {
+    event.preventDefault();
     setError("");
     setSuccess("");
 
@@ -46,19 +48,23 @@ export default function createTicket({ onBack, onCreated }) {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.message || `Could not create ticket (${response.status}).`);
+        throw new Error(
+          data.message || `Could not create ticket (${response.status}).`
+        );
       }
 
-      setSuccess(`Ticket created successfully${data.ticket?.id ? ` (Ticket ID: ${data.ticket.id})` : ""}.`);
-      setForm({
-        subject: "",
-        description: "",
-        category: "Technical",
-        priority: "medium",
-      });
-      if (onCreated) onCreated(data.ticket);
-    } catch (err) {
-      setError(err.message || "Something went wrong. Check that the backend is running.");
+      const ticketId = data.ticket?.id;
+      const message = ticketId
+        ? `Ticket created successfully (Ticket ID: ${ticketId}).`
+        : "Ticket created successfully.";
+
+      setSuccess(message);
+      setForm(initialForm);
+    } catch (requestError) {
+      setError(
+        requestError.message ||
+          "Something went wrong. Check that the backend is running."
+      );
     } finally {
       setLoading(false);
     }
@@ -76,25 +82,36 @@ export default function createTicket({ onBack, onCreated }) {
         </button>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <h1 className="text-2xl font-bold text-slate-900">Create Support Ticket</h1>
+          <h1 className="text-2xl font-bold text-slate-900">
+            Create Support Ticket
+          </h1>
           <p className="mt-2 text-sm text-slate-500">
             Describe your issue so our support team can help.
           </p>
 
           {error && (
-            <p role="alert" className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+            <p
+              role="alert"
+              className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-red-700"
+            >
               {error}
             </p>
           )}
           {success && (
-            <p role="status" className="mt-5 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+            <p
+              role="status"
+              className="mt-5 rounded-lg bg-green-50 p-3 text-sm text-green-700"
+            >
               {success}
             </p>
           )}
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
             <div>
-              <label htmlFor="subject" className="mb-1 block text-sm font-medium text-slate-700">
+              <label
+                htmlFor="subject"
+                className="mb-1 block text-sm font-medium text-slate-700"
+              >
                 Subject
               </label>
               <input
@@ -110,7 +127,10 @@ export default function createTicket({ onBack, onCreated }) {
             </div>
 
             <div>
-              <label htmlFor="description" className="mb-1 block text-sm font-medium text-slate-700">
+              <label
+                htmlFor="description"
+                className="mb-1 block text-sm font-medium text-slate-700"
+              >
                 Description
               </label>
               <textarea
@@ -127,7 +147,10 @@ export default function createTicket({ onBack, onCreated }) {
             </div>
 
             <div>
-              <label htmlFor="category" className="mb-1 block text-sm font-medium text-slate-700">
+              <label
+                htmlFor="category"
+                className="mb-1 block text-sm font-medium text-slate-700"
+              >
                 Category
               </label>
               <select
@@ -146,7 +169,10 @@ export default function createTicket({ onBack, onCreated }) {
             </div>
 
             <div>
-              <label htmlFor="priority" className="mb-1 block text-sm font-medium text-slate-700">
+              <label
+                htmlFor="priority"
+                className="mb-1 block text-sm font-medium text-slate-700"
+              >
                 Priority
               </label>
               <select
