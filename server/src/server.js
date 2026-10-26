@@ -7,6 +7,9 @@ const app = express();
 
 const pool = require("./config/db");
 
+app.use(cors());
+app.use(express.json());
+
 app.get("/api/health", async (req, res) => {
   try {
     const result = await pool.query("SELECT NOW() AS server_time");
@@ -25,30 +28,20 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-
-app.use(cors());
-app.use(express.json());
-
 app.get("/", (req, res) => {
   res.json({
     message: "Customer Support Ticket Management API is running!",
   });
 });
 
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "success",
-    message: "Backend is working correctly",
-  });
-});
+const authRoutes = require("./routes/authRoutes");
+app.use("/api/auth", authRoutes);
+
+const ticketRoutes = require("./routes/ticketRoutes");
+app.use("/api/tickets", ticketRoutes);
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Backend running at http://localhost:${PORT}`);
 });
-
-const authRoutes = require("./routes/authRoutes");
-
-app.use(express.json());
-app.use("/api/auth", authRoutes);

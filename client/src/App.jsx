@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import CreateTicket from "./CreateTicket";
+
 
 const initialForm = {
   name: "",
@@ -7,36 +9,6 @@ const initialForm = {
   confirmPassword: "",
 };
 
-const sampleTickets = [
-  {
-    id: "TKT-101",
-    subject: "Unable to access my account",
-    category: "Account",
-    priority: "High",
-    status: "Open",
-  },
-  {
-    id: "TKT-102",
-    subject: "Payment confirmation missing",
-    category: "Billing",
-    priority: "Medium",
-    status: "In Progress",
-  },
-  {
-    id: "TKT-103",
-    subject: "Update registered email address",
-    category: "Account",
-    priority: "Low",
-    status: "Resolved",
-  },
-  {
-    id: "TKT-104",
-    subject: "Application not loading",
-    category: "Technical",
-    priority: "Urgent",
-    status: "Open",
-  },
-];
 
 function getSavedUser() {
   try {
@@ -69,46 +41,83 @@ function getDashboardTitle(role) {
   return "Customer Dashboard";
 }
 
-function Dashboard({ user, onLogout }) {
+function Dashboard({ user, onLogout, onCreateTicket }) {
   const [notice, setNotice] = useState("");
+  const [tickets, setTickets] = useState([]);
+  const [ticketsLoading, setTicketsLoading] = useState(true);
+  const [ticketsError, setTicketsError] = useState("");
 
   const role = String(user.role || "customer").toLowerCase();
 
-  const stats = [
-    { label: "Total Tickets", value: 24, color: "text-blue-600" },
-    { label: "Open Tickets", value: 8, color: "text-amber-600" },
-    { label: "In Progress", value: 6, color: "text-violet-600" },
-    { label: "Resolved", value: 10, color: "text-green-600" },
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchTickets() {
+      if (role !== "customer") {
+        setTicketsLoading(false);
+        return;
+      }
+
+      try {
+        setTicketsLoading(true);
+        setTicketsError("");
+        const token = sessionStorage.getItem("token");
+        if (!token) throw new Error("Please sign in again.");
+
+        const response = await fetch("http://localhost:5000/api/tickets/my-tickets", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.message || `Unable to fetch tickets (${response.status}).`);
+        }
+        if (!cancelled) setTickets(Array.isArray(data.tickets) ? data.tickets : []);
+      } catch (error) {
+        if (!cancelled) setTicketsError(error.message || "Unable to fetch tickets.");
+      } finally {
+        if (!cancelled) setTicketsLoading(false);
+      }
+    }
+
+    fetchTickets();
+    return () => { cancelled = true; };
+  }, [role]);
+
+  const ticketStats = [
+    { label: "Total Tickets", value: tickets.length, color: "text-blue-600" },
+    { label: "Open Tickets", value: tickets.filter(t => String(t.status || "").toLowerCase() === "open").length, color: "text-amber-600" },
+    { label: "In Progress", value: tickets.filter(t => String(t.status || "").toLowerCase() === "in progress").length, color: "text-violet-600" },
+    { label: "Resolved", value: tickets.filter(t => String(t.status || "").toLowerCase() === "resolved").length, color: "text-green-600" },
   ];
 
   function getStatusStyle(status) {
     const styles = {
-      Open: "bg-amber-100 text-amber-700",
-      "In Progress": "bg-blue-100 text-blue-700",
-      Resolved: "bg-green-100 text-green-700",
+      open: "bg-amber-100 text-amber-700",
+      "in progress": "bg-blue-100 text-blue-700",
+      resolved: "bg-green-100 text-green-700",
+      closed: "bg-slate-100 text-slate-700",
     };
-
-    return styles[status] || "bg-slate-100 text-slate-700";
+    return styles[String(status || "").toLowerCase()] || "bg-slate-100 text-slate-700";
   }
 
   function getPriorityStyle(priority) {
     const styles = {
-      Low: "text-slate-500",
-      Medium: "text-blue-600",
-      High: "text-orange-600",
-      Urgent: "text-red-600",
+      low: "text-slate-500",
+      medium: "text-blue-600",
+      high: "text-orange-600",
+      urgent: "text-red-600",
     };
-
-    return styles[priority] || "text-slate-500";
+    return styles[String(priority || "").toLowerCase()] || "text-slate-500";
   }
 
   function handleCreateTicket() {
     if (role === "admin") {
-      setNotice("Admin workspace is ready..");
+      setNotice("Admin workspace is ready.");
     } else if (role === "agent") {
       setNotice("Agent workspace is ready.");
     } else {
-      setNotice("The Create Ticket will active soon.");
+      onCreateTicket();
     }
   }
 
@@ -133,7 +142,7 @@ function Dashboard({ user, onLogout }) {
 
           <button
             type="button"
-            onClick={() => setNotice("Ticket management will be added next.")}
+            onClick={() => setNotice("")}
             className="flex items-center gap-3 rounded-lg px-4 py-3 text-left text-slate-300 hover:bg-slate-800"
           >
             <span>▤</span> Tickets
@@ -201,7 +210,7 @@ function Dashboard({ user, onLogout }) {
         )}
 
         <section className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {stats.map((stat) => (
+          {ticketStats.map((stat) => (
             <div
               key={stat.label}
               className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
@@ -210,9 +219,7 @@ function Dashboard({ user, onLogout }) {
               <p className={`mt-3 text-3xl font-bold ${stat.color}`}>
                 {stat.value}
               </p>
-              <p className="mt-2 text-xs text-slate-400">
-                Sample dashboard data
-              </p>
+              <p className="mt-2 text-xs text-slate-400">Live ticket data</p>
             </div>
           ))}
         </section>
@@ -228,7 +235,7 @@ function Dashboard({ user, onLogout }) {
               </p>
             </div>
             <span className="text-sm text-slate-500">
-              {sampleTickets.length} sample tickets
+              {role === "customer" ? `${tickets.length} tickets` : "Role-specific tickets"}
             </span>
           </div>
 
@@ -244,40 +251,40 @@ function Dashboard({ user, onLogout }) {
               </thead>
 
               <tbody className="divide-y divide-slate-100">
-                {sampleTickets.map((ticket) => (
-                  <tr key={ticket.id} className="hover:bg-slate-50">
-                    <td className="px-5 py-4">
-                      <p className="font-medium text-slate-800">
-                        {ticket.subject}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-400">
-                        {ticket.id}
-                      </p>
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {ticket.category}
-                    </td>
-                    <td
-                      className={`px-5 py-4 font-medium ${getPriorityStyle(ticket.priority)}`}
-                    >
-                      {ticket.priority}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusStyle(ticket.status)}`}
-                      >
-                        {ticket.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {role !== "customer" ? (
+                  <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">
+                    Ticket listing for {role} accounts will be connected to its role-specific API next.
+                  </td></tr>
+                ) : ticketsLoading ? (
+                  <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">Loading your tickets...</td></tr>
+                ) : ticketsError ? (
+                  <tr><td colSpan={4} role="alert" className="px-5 py-8 text-center text-red-600">{ticketsError}</td></tr>
+                ) : tickets.length === 0 ? (
+                  <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">No tickets found. Create your first support ticket.</td></tr>
+                ) : (
+                  tickets.map((ticket) => (
+                    <tr key={ticket.id} className="hover:bg-slate-50">
+                      <td className="px-5 py-4">
+                        <p className="font-medium text-slate-800">{ticket.subject}</p>
+                        <p className="mt-1 text-xs text-slate-400">Ticket #{ticket.id}</p>
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">{ticket.category}</td>
+                      <td className={`px-5 py-4 font-medium ${getPriorityStyle(ticket.priority)}`}>{ticket.priority}</td>
+                      <td className="px-5 py-4">
+                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusStyle(ticket.status)}`}>
+                          {ticket.status || "Open"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </section>
 
         <p className="mt-6 text-xs text-slate-400">
-          Ticket counts and records are sample data, not live database records.
+          {role === "customer" ? "Ticket information is  from my database account." : "Role-specific ticket data will be connected in a later step."}
         </p>
       </main>
     </div>
@@ -400,8 +407,25 @@ export default function App() {
     setPage("login");
   }
 
+  if (page === "create-ticket" && user && user.role === "customer") {
+    return (
+      <CreateTicket
+        onBack={() => setPage("dashboard")}
+        onCreated={() => {
+        
+        }}
+      />
+    );
+  }
+
   if (page === "dashboard" && user) {
-    return <Dashboard user={user} onLogout={handleLogout} />;
+    return (
+      <Dashboard
+        user={user}
+        onLogout={handleLogout}
+        onCreateTicket={() => setPage("create-ticket")}
+      />
+    );
   }
 
   return (
