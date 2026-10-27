@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import CreateTicket from "./createTicket";
+import TicketDetails from "./TicketDetails";
 
 
 const initialForm = {
@@ -46,7 +47,7 @@ function getDashboardTitle(role) {
   return "Customer Dashboard";
 }
 
-function Dashboard({ user, onLogout, onCreateTicket }) {
+function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
   const [notice, setNotice] = useState("");
   const [tickets, setTickets] = useState([]);
   const [ticketsLoading, setTicketsLoading] = useState(true);
@@ -289,7 +290,13 @@ function Dashboard({ user, onLogout, onCreateTicket }) {
                   tickets.map((ticket) => (
                     <tr key={ticket.id} className="hover:bg-slate-50">
                       <td className="px-5 py-4">
-                        <p className="font-medium text-slate-800">{ticket.subject}</p>
+                        <button
+                          type="button"
+                          onClick={() => onViewTicket(ticket.id)}
+                          className="text-left font-medium text-blue-600 hover:underline"
+                        >
+                          {ticket.subject || "Untitled ticket"}
+                        </button>
                         <p className="mt-1 text-xs text-slate-400">Ticket #{ticket.id}</p>
                       </td>
                       <td className="px-5 py-4 text-slate-600">{ticket.category}</td>
@@ -323,6 +330,7 @@ export default function App() {
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedTicketId, setSelectedTicketId] = useState(null);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -438,12 +446,25 @@ export default function App() {
     );
   }
 
+  if (page === "ticket-details" && user) {
+  return (
+    <TicketDetails
+      ticketId={selectedTicketId}
+      onBack={() => setPage("dashboard")}
+    />
+  );
+}
+
   if (page === "dashboard" && user) {
     return (
       <Dashboard
         user={user}
         onLogout={handleLogout}
         onCreateTicket={() => setPage("create-ticket")}
+        onViewTicket={(ticketId) => {
+          setSelectedTicketId(ticketId);
+          setPage("ticket-details");
+        }}
       />
     );
   }
