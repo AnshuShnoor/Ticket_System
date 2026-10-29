@@ -49,6 +49,10 @@ app.use("/api/tickets", ticketRoutes);
 const messageRoutes = require("./routes/messageRoutes");
 app.use("/api/messages", messageRoutes);
 
+
+const activityRoutes = require("./routes/activityRoutes");
+
+app.use("/api/activity", activityRoutes);
 // Start server
 const PORT = process.env.PORT || 5000;
 

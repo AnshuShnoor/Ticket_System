@@ -52,6 +52,9 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
   const [tickets, setTickets] = useState([]);
   const [ticketsLoading, setTicketsLoading] = useState(true);
   const [ticketsError, setTicketsError] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+  const [statusError, setStatusError] = useState("");
+  const [updatingTicketId, setUpdatingTicketId] = useState(null);
 
   const role = String(user.role || "customer").trim().toLowerCase();
 
@@ -59,7 +62,9 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
     let cancelled = false;
 
     async function fetchTickets() {
-      if (role !== "customer") {
+      // Admin ticket management will be connected separately.
+      if (role === "admin") {
+        setTickets([]);
         setTicketsLoading(false);
         return;
       }
@@ -67,10 +72,15 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
       try {
         setTicketsLoading(true);
         setTicketsError("");
+
         const token = sessionStorage.getItem("token");
         if (!token) throw new Error("Please sign in again.");
 
-        const response = await fetch("http://localhost:5000/api/tickets/my-tickets", {
+        const endpoint = role === "agent"
+          ? "/api/tickets/assigned"
+          : "/api/tickets/my-tickets";
+
+        const response = await fetch(`http://localhost:5000${endpoint}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await response.json().catch(() => ({}));
@@ -78,9 +88,15 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
         if (!response.ok) {
           throw new Error(data.message || `Unable to fetch tickets (${response.status}).`);
         }
-        if (!cancelled) setTickets(Array.isArray(data.tickets) ? data.tickets : []);
+
+        if (!cancelled) {
+          // Controllers may return either an array or an object containing tickets.
+          setTickets(Array.isArray(data) ? data : Array.isArray(data.tickets) ? data.tickets : []);
+        }
       } catch (error) {
-        if (!cancelled) setTicketsError(error.message || "Unable to fetch tickets.");
+        if (!cancelled) {
+          setTicketsError(error.message || "Unable to fetch tickets.");
+        }
       } finally {
         if (!cancelled) setTicketsLoading(false);
       }
@@ -89,6 +105,46 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
     fetchTickets();
     return () => { cancelled = true; };
   }, [role]);
+
+  async function handleStatusChange(ticketId, nextStatus) {
+    const token = sessionStorage.getItem("token");
+    if (!token) {
+      setStatusError("Please sign in again.");
+      return;
+    }
+
+    setUpdatingTicketId(ticketId);
+    setStatusMessage("");
+    setStatusError("");
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/tickets/${ticketId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || `Unable to update status (${response.status}).`);
+      }
+
+      const updatedTicket = data.ticket;
+      setTickets((currentTickets) => currentTickets.map((ticket) =>
+        Number(ticket.id) === Number(ticketId)
+          ? { ...ticket, ...(updatedTicket || {}), status: updatedTicket?.status || nextStatus }
+          : ticket
+      ));
+      setStatusMessage(`Ticket #${ticketId} status updated successfully.`);
+    } catch (error) {
+      setStatusError(error.message || "Unable to update ticket status.");
+    } finally {
+      setUpdatingTicketId(null);
+    }
+  }
 
   const ticketStats = [
     { label: "Total Tickets", value: tickets.length, color: "text-blue-600" },
@@ -247,6 +303,17 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
           ))}
         </section>
 
+        {statusMessage && (
+          <p role="status" className="mt-5 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+            {statusMessage}
+          </p>
+        )}
+        {statusError && (
+          <p role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {statusError}
+          </p>
+        )}
+
         <section className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-2 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -260,7 +327,9 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
             <span className="text-sm text-slate-500">
               {role === "customer"
                 ? `${tickets.length} tickets`
-                : "Role-specific tickets"}
+                : role === "agent"
+                  ? `${tickets.length} assigned tickets`
+                  : "Admin workspace"}
             </span>
           </div>
 
@@ -276,16 +345,32 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
               </thead>
 
               <tbody className="divide-y divide-slate-100">
-                {role !== "customer" ? (
-                  <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">
-                    Ticket listing for {role} accounts will be connected to its role-specific API next.
-                  </td></tr>
+                {role === "admin" ? (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
+                      Admin ticket management will be connected separately.
+                    </td>
+                  </tr>
                 ) : ticketsLoading ? (
-                  <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">Loading your tickets...</td></tr>
+                  <tr>
+                    <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
+                      Loading tickets...
+                    </td>
+                  </tr>
                 ) : ticketsError ? (
-                  <tr><td colSpan={4} role="alert" className="px-5 py-8 text-center text-red-600">{ticketsError}</td></tr>
+                  <tr>
+                    <td colSpan={4} role="alert" className="px-5 py-8 text-center text-red-600">
+                      {ticketsError}
+                    </td>
+                  </tr>
                 ) : tickets.length === 0 ? (
-                  <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">No tickets found. Create your first support ticket.</td></tr>
+                  <tr>
+                    <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
+                      {role === "agent"
+                        ? "No tickets have been assigned to you yet."
+                        : "No tickets found. Create your first support ticket."}
+                    </td>
+                  </tr>
                 ) : (
                   tickets.map((ticket) => (
                     <tr key={ticket.id} className="hover:bg-slate-50">
@@ -297,14 +382,34 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
                         >
                           {ticket.subject || "Untitled ticket"}
                         </button>
-                        <p className="mt-1 text-xs text-slate-400">Ticket #{ticket.id}</p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Ticket #{ticket.id}
+                        </p>
                       </td>
-                      <td className="px-5 py-4 text-slate-600">{ticket.category}</td>
-                      <td className={`px-5 py-4 font-medium ${getPriorityStyle(ticket.priority)}`}>{ticket.priority}</td>
+                      <td className="px-5 py-4 text-slate-600">
+                        {ticket.category || "—"}
+                      </td>
+                      <td className={`px-5 py-4 font-medium ${getPriorityStyle(ticket.priority)}`}>
+                        {ticket.priority || "—"}
+                      </td>
                       <td className="px-5 py-4">
-                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusStyle(ticket.status)}`}>
-                          {ticket.status || "Open"}
-                        </span>
+                        {role === "agent" ? (
+                          <select
+                            aria-label={`Update status for ticket ${ticket.id}`}
+                            value={normalizeStatus(ticket.status) || "open"}
+                            onChange={(event) => handleStatusChange(ticket.id, event.target.value)}
+                            disabled={updatingTicketId === ticket.id}
+                            className={`rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 disabled:opacity-60 ${getStatusStyle(ticket.status)}`}
+                          >
+                            <option value="open">Open</option>
+                            <option value="in progress">In Progress</option>
+                            <option value="resolved">Resolved</option>
+                          </select>
+                        ) : (
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusStyle(ticket.status)}`}>
+                            {ticket.status || "Open"}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -316,8 +421,10 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
 
         <p className="mt-6 text-xs text-slate-400">
           {role === "customer"
-            ? "Ticket information is from my database account."
-            : "Role-specific ticket data will be connected in a later step."}
+            ? "Showing tickets created by your account."
+            : role === "agent"
+              ? "Showing tickets assigned to your account."
+              : "Manage support operations from your admin workspace."}
         </p>
       </main>
     </div>

@@ -12,6 +12,7 @@ const {
   assignTicket,
   getAssignedTickets,
   getUnassignedTickets,
+  updateTicketStatus,
 } = require("../controllers/ticketController");
 
 // Customer creates a ticket
@@ -22,7 +23,7 @@ router.post(
   createTicket
 );
 
-// Customer views their own tickets
+// Customer views their tickets
 router.get(
   "/my-tickets",
   authenticateToken,
@@ -30,7 +31,7 @@ router.get(
   getMyTickets
 );
 
-// Agent views tickets assigned to them
+// Agent views assigned tickets
 router.get(
   "/assigned",
   authenticateToken,
@@ -46,12 +47,20 @@ router.get(
   getUnassignedTickets
 );
 
-// Admin assigns a ticket to an agent
+// Admin assigns a ticket
 router.patch(
   "/:id/assign",
   authenticateToken,
   authorizeRole("admin"),
   assignTicket
+);
+
+// Agent updates the status of an assigned ticket
+router.patch(
+  "/:id/status",
+  authenticateToken,
+  authorizeRole("agent"),
+  updateTicketStatus
 );
 
 // Fetch a specific ticket
