@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 
 const TICKET_API = "http://localhost:5000/api/tickets";
 const MESSAGE_API = "http://localhost:5000/api/messages";
+const ACTIVITY_API = "http://localhost:5000/api/activity";
 
 function TicketDetails({ ticketId, onBack }) {
   const [ticket, setTicket] = useState(null);
@@ -16,6 +17,11 @@ function TicketDetails({ ticketId, onBack }) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
 
+  // Activity History States
+  const [activities, setActivities] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState("");
+
   const getToken = () => sessionStorage.getItem("token");
 
   // Fetch ticket details
@@ -28,8 +34,7 @@ function TicketDetails({ ticketId, onBack }) {
         const token = getToken();
 
         if (!token) {
-          setError("Please log in again to view this ticket.");
-          return;
+          throw new Error("Please log in again to view this ticket.");
         }
 
         const response = await fetch(`${TICKET_API}/${ticketId}`, {
@@ -42,7 +47,7 @@ function TicketDetails({ ticketId, onBack }) {
           throw new Error(data.message || "Unable to load ticket.");
         }
 
-        setTicket(data.ticket);
+        setTicket(data.ticket || data);
       } catch (err) {
         setError(err.message || "Something went wrong.");
       } finally {
@@ -94,6 +99,50 @@ function TicketDetails({ ticketId, onBack }) {
     }
   }, [ticketId, fetchMessages]);
 
+  // Fetch ticket activity history
+  const fetchActivities = useCallback(async () => {
+    try {
+      setActivityLoading(true);
+      setActivityError("");
+
+      const token = getToken();
+
+      if (!token) {
+        throw new Error("Please log in again.");
+      }
+
+      const response = await fetch(`${ACTIVITY_API}/${ticketId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Unable to load ticket activity."
+        );
+      }
+
+      setActivities(
+        Array.isArray(data.activities) ? data.activities : []
+      );
+    } catch (err) {
+      setActivityError(
+        err.message || "Unable to load ticket activity."
+      );
+    } finally {
+      setActivityLoading(false);
+    }
+  }, [ticketId]);
+
+  useEffect(() => {
+    if (ticketId) {
+      fetchActivities();
+    }
+  }, [ticketId, fetchActivities]);
+
   // Send a new message
   const handleSendMessage = async (event) => {
     event.preventDefault();
@@ -144,13 +193,23 @@ function TicketDetails({ ticketId, onBack }) {
   const formatDate = (date) => {
     if (!date) return "Not available";
 
-    const parsedDate = new Date(date);
+    const parsed = new Date(date);
 
-    if (Number.isNaN(parsedDate.getTime())) {
+    if (Number.isNaN(parsed.getTime())) {
       return "Not available";
     }
 
-    return parsedDate.toLocaleString();
+    return parsed.toLocaleString();
+  };
+
+  const formatValue = (value) => {
+    if (value === null || value === undefined || value === "") {
+      return "—";
+    }
+
+    return String(value)
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
   const InfoItem = ({ label, value }) => (
@@ -182,7 +241,9 @@ function TicketDetails({ ticketId, onBack }) {
           </p>
 
           {loading && (
-            <p className="mt-6 text-gray-600">Loading ticket details...</p>
+            <p className="mt-6 text-gray-600">
+              Loading ticket details...
+            </p>
           )}
 
           {!loading && error && (
@@ -193,6 +254,8 @@ function TicketDetails({ ticketId, onBack }) {
 
           {!loading && !error && ticket && (
             <div className="mt-6 space-y-8">
+
+              {/* Ticket Information */}
               <section>
                 <p className="text-sm text-gray-500">
                   Ticket ID: #{ticket.id}
@@ -205,7 +268,7 @@ function TicketDetails({ ticketId, onBack }) {
                 <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <InfoItem label="Category" value={ticket.category} />
                   <InfoItem label="Priority" value={ticket.priority} />
-                  <InfoItem label="Status" value={ticket.status} />
+                  <InfoItem label="Status" value={formatValue(ticket.status)} />
                   <InfoItem
                     label="Created At"
                     value={formatDate(ticket.created_at)}
@@ -221,6 +284,114 @@ function TicketDetails({ ticketId, onBack }) {
                 </p>
               </section>
 
+              {/* Activity Timeline */}
+              <section className="border-t border-gray-200 pt-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">
+                      Activity History
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Track all updates made to this ticket.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={fetchActivities}
+                    disabled={activityLoading}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {activityLoading ? "Refreshing..." : "Refresh"}
+                  </button>
+                </div>
+
+                {activityLoading && (
+                  <p className="mt-5 text-sm text-gray-600">
+                    Loading activity history...
+                  </p>
+                )}
+
+                {activityError && (
+                  <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                    {activityError}
+                    <button
+                      type="button"
+                      onClick={fetchActivities}
+                      className="ml-2 font-semibold underline"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+
+                {!activityLoading &&
+                  !activityError &&
+                  activities.length === 0 && (
+                    <p className="mt-5 rounded-lg bg-gray-50 p-4 text-sm text-gray-500">
+                      No activity history available yet.
+                    </p>
+                  )}
+
+                {!activityLoading &&
+                  !activityError &&
+                  activities.length > 0 && (
+                    <div className="mt-6 space-y-5">
+                      {activities.map((activity) => (
+                        <div
+                          key={activity.id}
+                          className="relative border-l-2 border-blue-200 pb-2 pl-5"
+                        >
+                          <span className="absolute -left-[7px] top-1 h-3 w-3 rounded-full border-2 border-blue-500 bg-white" />
+
+                          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <h3 className="font-semibold text-gray-900">
+                                {activity.action}
+                              </h3>
+
+                              <span className="text-xs text-gray-500">
+                                {formatDate(activity.created_at)}
+                              </span>
+                            </div>
+
+                            <p className="mt-2 text-sm text-gray-600">
+                              Performed by:{" "}
+                              <span className="font-medium text-gray-800">
+                                {activity.actor_name || `User #${activity.actor_id}`}
+                              </span>
+                            </p>
+
+                            {(activity.old_value !== null ||
+                              activity.new_value !== null) && (
+                              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div className="rounded-md bg-white p-3">
+                                  <p className="text-xs text-gray-500">
+                                    Previous Value
+                                  </p>
+                                  <p className="mt-1 font-medium text-gray-700">
+                                    {formatValue(activity.old_value)}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-md bg-white p-3">
+                                  <p className="text-xs text-gray-500">
+                                    New Value
+                                  </p>
+                                  <p className="mt-1 font-medium text-gray-800">
+                                    {formatValue(activity.new_value)}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+              </section>
+
+              {/* Ticket Conversation */}
               <section className="border-t border-gray-200 pt-6">
                 <h2 className="text-xl font-bold text-gray-900">
                   Ticket Conversation

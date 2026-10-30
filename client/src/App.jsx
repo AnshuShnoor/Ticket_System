@@ -55,6 +55,12 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
   const [statusMessage, setStatusMessage] = useState("");
   const [statusError, setStatusError] = useState("");
   const [updatingTicketId, setUpdatingTicketId] = useState(null);
+  const [agents, setAgents] = useState([]);
+  const [selectedAgents, setSelectedAgents] = useState({});
+  const [assigningTicketId, setAssigningTicketId] = useState(null);
+  const [assignmentMessage, setAssignmentMessage] = useState("");
+  const [assignmentError, setAssignmentError] = useState("");
+  const [activeSection, setActiveSection] = useState("dashboard");
 
   const role = String(user.role || "customer").trim().toLowerCase();
 
@@ -62,13 +68,6 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
     let cancelled = false;
 
     async function fetchTickets() {
-      // Admin ticket management will be connected separately.
-      if (role === "admin") {
-        setTickets([]);
-        setTicketsLoading(false);
-        return;
-      }
-
       try {
         setTicketsLoading(true);
         setTicketsError("");
@@ -76,22 +75,46 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
         const token = sessionStorage.getItem("token");
         if (!token) throw new Error("Please sign in again.");
 
-        const endpoint = role === "agent"
-          ? "/api/tickets/assigned"
-          : "/api/tickets/my-tickets";
+        const headers = { Authorization: `Bearer ${token}` };
 
-        const response = await fetch(`http://localhost:5000${endpoint}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await response.json().catch(() => ({}));
+        const ticketResponse = await fetch(
+          "http://localhost:5000/api/tickets",
+          { headers }
+        );
+        const ticketData = await ticketResponse.json().catch(() => ({}));
 
-        if (!response.ok) {
-          throw new Error(data.message || `Unable to fetch tickets (${response.status}).`);
+        if (!ticketResponse.ok) {
+          throw new Error(
+            ticketData.message || `Unable to fetch tickets (${ticketResponse.status}).`
+          );
         }
 
         if (!cancelled) {
-          // Controllers may return either an array or an object containing tickets.
-          setTickets(Array.isArray(data) ? data : Array.isArray(data.tickets) ? data.tickets : []);
+          setTickets(
+            Array.isArray(ticketData)
+              ? ticketData
+              : Array.isArray(ticketData.tickets)
+                ? ticketData.tickets
+                : []
+          );
+        }
+
+        if (role === "admin") {
+          const agentResponse = await fetch(
+            "http://localhost:5000/api/tickets/agents",
+            { headers }
+          );
+          const agentData = await agentResponse.json().catch(() => ({}));
+
+          if (!agentResponse.ok) {
+            throw new Error(
+              agentData.message || `Unable to fetch agents (${agentResponse.status}).`
+            );
+          }
+
+          if (!cancelled) {
+            setAgents(Array.isArray(agentData.agents) ? agentData.agents : []);
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -101,10 +124,62 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
         if (!cancelled) setTicketsLoading(false);
       }
     }
-
     fetchTickets();
     return () => { cancelled = true; };
   }, [role]);
+
+  async function handleAssignTicket(ticketId) {
+    const agentId = selectedAgents[ticketId];
+    const token = sessionStorage.getItem("token");
+
+    if (!token) {
+      setAssignmentError("Please sign in again.");
+      return;
+    }
+
+    if (!agentId) {
+      setAssignmentError("Please select an agent first.");
+      return;
+    }
+
+    setAssigningTicketId(ticketId);
+    setAssignmentMessage("");
+    setAssignmentError("");
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/tickets/${ticketId}/assign`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ agentId: Number(agentId) }),
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || `Unable to assign ticket (${response.status}).`);
+      }
+
+      setTickets((currentTickets) =>
+        currentTickets.filter((ticket) => Number(ticket.id) !== Number(ticketId))
+      );
+      setSelectedAgents((current) => {
+        const updated = { ...current };
+        delete updated[ticketId];
+        return updated;
+      });
+      setAssignmentMessage(`Ticket #${ticketId} assigned successfully.`);
+    } catch (error) {
+      setAssignmentError(error.message || "Unable to assign ticket.");
+    } finally {
+      setAssigningTicketId(null);
+    }
+  }
 
   async function handleStatusChange(ticketId, nextStatus) {
     const token = sessionStorage.getItem("token");
@@ -192,9 +267,12 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
 
   function handleCreateTicket() {
     if (role === "admin") {
-      setNotice("Admin workspace is ready.");
+      setActiveSection("tickets");
+      setNotice("");
     } else if (role === "agent") {
-      setNotice("Agent workspace is ready.");
+      // Agents should be taken to their role-filtered assigned tickets list.
+      setActiveSection("tickets");
+      setNotice("");
     } else {
       onCreateTicket();
     }
@@ -213,16 +291,30 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
         <nav className="flex gap-2 p-4 md:flex-1 md:flex-col">
           <button
             type="button"
-            onClick={() => setNotice("")}
-            className="flex items-center gap-3 rounded-lg bg-blue-600 px-4 py-3 text-left font-medium"
+            onClick={() => {
+              setActiveSection("dashboard");
+              setNotice("");
+            }}
+            className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left font-medium ${
+              activeSection === "dashboard"
+                ? "bg-blue-600 text-white"
+                : "text-slate-300 hover:bg-slate-800"
+            }`}
           >
             <span>▦</span> Dashboard
           </button>
 
           <button
             type="button"
-            onClick={() => setNotice("")}
-            className="flex items-center gap-3 rounded-lg px-4 py-3 text-left text-slate-300 hover:bg-slate-800"
+            onClick={() => {
+              setActiveSection("tickets");
+              setNotice("");
+            }}
+            className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left font-medium ${
+              activeSection === "tickets"
+                ? "bg-blue-600 text-white"
+                : "text-slate-300 hover:bg-slate-800"
+            }`}
           >
             <span>▤</span> Tickets
           </button>
@@ -247,9 +339,11 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
       <main className="min-w-0 flex-1 p-5 sm:p-8">
         <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <p className="text-sm text-slate-500">Workspace / Dashboard</p>
+            <p className="text-sm text-slate-500">
+              Workspace / {activeSection === "tickets" ? (role === "agent" ? "Assigned Tickets" : "Tickets") : "Dashboard"}
+            </p>
             <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-              {getDashboardTitle(role)}
+              {activeSection === "tickets" ? (role === "agent" ? "Assigned Tickets" : "All Tickets") : getDashboardTitle(role)}
             </h1>
             <p className="mt-2 text-sm text-slate-500">
               Welcome back, {user.name}.
@@ -288,6 +382,7 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
           </div>
         )}
 
+        {activeSection === "dashboard" && (
         <section className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {ticketStats.map((stat) => (
             <div
@@ -302,6 +397,7 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
             </div>
           ))}
         </section>
+        )}
 
         {statusMessage && (
           <p role="status" className="mt-5 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
@@ -313,15 +409,37 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
             {statusError}
           </p>
         )}
+        {assignmentMessage && (
+          <p role="status" className="mt-5 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+            {assignmentMessage}
+          </p>
+        )}
+        {assignmentError && (
+          <p role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {assignmentError}
+          </p>
+        )}
 
         <section className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-2 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">
-                Recent Tickets
+                {activeSection === "tickets"
+                  ? role === "agent" ? "Assigned Tickets" : "All Tickets"
+                  : role === "admin"
+                    ? "All Support Tickets"
+                    : "Recent Tickets"}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Latest support requests
+                {activeSection === "tickets"
+                  ? role === "admin"
+                    ? "All tickets across the system"
+                    : role === "agent"
+                      ? "All tickets assigned to you"
+                      : "All tickets created by your account"
+                  : role === "admin"
+                    ? "Overview of all customer support requests"
+                    : "Latest support requests"}
               </p>
             </div>
             <span className="text-sm text-slate-500">
@@ -329,7 +447,7 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
                 ? `${tickets.length} tickets`
                 : role === "agent"
                   ? `${tickets.length} assigned tickets`
-                  : "Admin workspace"}
+                  : `${tickets.length} tickets`}
             </span>
           </div>
 
@@ -341,34 +459,33 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
                   <th className="px-5 py-4 font-medium">Category</th>
                   <th className="px-5 py-4 font-medium">Priority</th>
                   <th className="px-5 py-4 font-medium">Status</th>
+                  {role === "admin" && (
+                    <th className="px-5 py-4 font-medium">Assign Agent</th>
+                  )}
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-100">
-                {role === "admin" ? (
+                {ticketsLoading ? (
                   <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
-                      Admin ticket management will be connected separately.
-                    </td>
-                  </tr>
-                ) : ticketsLoading ? (
-                  <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
+                    <td colSpan={role === "admin" ? 5 : 4} className="px-5 py-8 text-center text-slate-500">
                       Loading tickets...
                     </td>
                   </tr>
                 ) : ticketsError ? (
                   <tr>
-                    <td colSpan={4} role="alert" className="px-5 py-8 text-center text-red-600">
+                    <td colSpan={role === "admin" ? 5 : 4} role="alert" className="px-5 py-8 text-center text-red-600">
                       {ticketsError}
                     </td>
                   </tr>
                 ) : tickets.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
-                      {role === "agent"
-                        ? "No tickets have been assigned to you yet."
-                        : "No tickets found. Create your first support ticket."}
+                    <td colSpan={role === "admin" ? 5 : 4} className="px-5 py-8 text-center text-slate-500">
+                      {role === "admin"
+                        ? "There are no tickets in the system yet."
+                        : role === "agent"
+                          ? "No tickets have been assigned to you yet."
+                          : "No tickets found. Create your first support ticket."}
                     </td>
                   </tr>
                 ) : (
@@ -411,6 +528,38 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
                           </span>
                         )}
                       </td>
+                      {role === "admin" && (
+                        <td className="px-5 py-4">
+                          <div className="flex min-w-64 items-center gap-2">
+                            <select
+                              aria-label={`Select agent for ticket ${ticket.id}`}
+                              value={selectedAgents[ticket.id] || ticket.assigned_agent_id || ""}
+                              onChange={(event) =>
+                                setSelectedAgents((current) => ({
+                                  ...current,
+                                  [ticket.id]: event.target.value,
+                                }))
+                              }
+                              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs outline-none focus:border-blue-500"
+                            >
+                              <option value="">Select agent</option>
+                              {agents.map((agent) => (
+                                <option key={agent.id} value={agent.id}>
+                                  {agent.name} ({agent.email})
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => handleAssignTicket(ticket.id)}
+                              disabled={!selectedAgents[ticket.id] || assigningTicketId === ticket.id}
+                              className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {assigningTicketId === ticket.id ? "Assigning..." : "Assign"}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -424,7 +573,7 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
             ? "Showing tickets created by your account."
             : role === "agent"
               ? "Showing tickets assigned to your account."
-              : "Manage support operations from your admin workspace."}
+              : "Showing all tickets available to your role."}
         </p>
       </main>
     </div>

@@ -1,8 +1,9 @@
 
 const pool = require("../config/db");
+const logTicketActivity = require("../utils/activityLogger");
 
 const validPriorities = ["low", "medium", "high", "urgent"];
-const validStatuses = ["open", "in progress", "resolved"];
+const validStatuses = ["open", "in_progress", "resolved"];
 
 // 1. Customer creates a ticket
 const createTicket = async (req, res) => {
@@ -10,12 +11,9 @@ const createTicket = async (req, res) => {
     const { subject, description, category, priority } = req.body;
 
     if (
-      typeof subject !== "string" ||
-      !subject.trim() ||
-      typeof description !== "string" ||
-      !description.trim() ||
-      typeof category !== "string" ||
-      !category.trim()
+      typeof subject !== "string" || !subject.trim() ||
+      typeof description !== "string" || !description.trim() ||
+      typeof category !== "string" || !category.trim()
     ) {
       return res.status(400).json({
         message: "Subject, description and category are required.",
@@ -23,7 +21,9 @@ const createTicket = async (req, res) => {
     }
 
     const normalizedPriority =
-      typeof priority === "string" ? priority.trim().toLowerCase() : "medium";
+      typeof priority === "string"
+        ? priority.trim().toLowerCase()
+        : "medium";
 
     if (!validPriorities.includes(normalizedPriority)) {
       return res.status(400).json({
@@ -46,6 +46,14 @@ const createTicket = async (req, res) => {
       ]
     );
 
+    await logTicketActivity(
+      result.rows[0].id,
+      req.user.id,
+      "Ticket Created",
+      null,
+      "open"
+    );
+
     return res.status(201).json({
       message: "Ticket created successfully.",
       ticket: result.rows[0],
@@ -62,8 +70,7 @@ const createTicket = async (req, res) => {
 const getMyTickets = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT *
-       FROM tickets
+      `SELECT * FROM tickets
        WHERE customer_id = $1
        ORDER BY created_at DESC`,
       [req.user.id]
@@ -78,7 +85,51 @@ const getMyTickets = async (req, res) => {
   }
 };
 
-// 3. Fetch one ticket with role-based access
+// 3. Get all tickets according to logged-in user's role
+const getTickets = async (req, res) => {
+  try {
+    const { id, role } = req.user;
+
+    let result;
+
+    if (role === "admin") {
+      // Admin can view all tickets
+      result = await pool.query(
+        `SELECT * FROM tickets
+         ORDER BY created_at DESC`
+      );
+    } else if (role === "agent") {
+      // Agent can view tickets assigned to them
+      result = await pool.query(
+        `SELECT * FROM tickets
+         WHERE assigned_agent_id = $1
+         ORDER BY created_at DESC`,
+        [id]
+      );
+    } else if (role === "customer") {
+      // Customer can view tickets created by them
+      result = await pool.query(
+        `SELECT * FROM tickets
+         WHERE customer_id = $1
+         ORDER BY created_at DESC`,
+        [id]
+      );
+    } else {
+      return res.status(403).json({
+        message: "Access denied.",
+      });
+    }
+
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    console.error("Get tickets error:", error.message);
+    return res.status(500).json({
+      message: "Unable to fetch tickets.",
+    });
+  }
+};
+
+// 4. Fetch one ticket with role-based access
 const getTicketById = async (req, res) => {
   try {
     const ticketId = Number(req.params.id);
@@ -90,9 +141,7 @@ const getTicketById = async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT *
-       FROM tickets
-       WHERE id = $1`,
+      `SELECT * FROM tickets WHERE id = $1`,
       [ticketId]
     );
 
@@ -139,12 +188,11 @@ const getTicketById = async (req, res) => {
   }
 };
 
-// 4. Admin views unassigned tickets
+// 5. Admin views unassigned tickets
 const getUnassignedTickets = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT *
-       FROM tickets
+      `SELECT * FROM tickets
        WHERE assigned_agent_id IS NULL
        ORDER BY created_at DESC`
     );
@@ -158,12 +206,32 @@ const getUnassignedTickets = async (req, res) => {
   }
 };
 
-// 5. Agent views tickets assigned to them
+// 6. Admin views all available agents
+const getAgents = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, email
+       FROM users
+       WHERE role = 'agent'
+       ORDER BY name ASC`
+    );
+
+    return res.status(200).json({
+      agents: result.rows,
+    });
+  } catch (error) {
+    console.error("Get agents error:", error.message);
+    return res.status(500).json({
+      message: "Unable to fetch agents.",
+    });
+  }
+};
+
+// 7. Agent views tickets assigned to them
 const getAssignedTickets = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT *
-       FROM tickets
+      `SELECT * FROM tickets
        WHERE assigned_agent_id = $1
        ORDER BY updated_at DESC`,
       [req.user.id]
@@ -178,7 +246,7 @@ const getAssignedTickets = async (req, res) => {
   }
 };
 
-// 6. Admin assigns a ticket to an agent
+// 8. Admin assigns a ticket to an agent
 const assignTicket = async (req, res) => {
   try {
     const ticketId = Number(req.params.id);
@@ -199,9 +267,7 @@ const assignTicket = async (req, res) => {
     }
 
     const agentResult = await pool.query(
-      `SELECT id
-       FROM users
-       WHERE id = $1 AND role = 'agent'`,
+      `SELECT id FROM users WHERE id = $1 AND role = 'agent'`,
       [parsedAgentId]
     );
 
@@ -210,6 +276,19 @@ const assignTicket = async (req, res) => {
         message: "Agent not found.",
       });
     }
+
+    const existingTicket = await pool.query(
+      `SELECT assigned_agent_id FROM tickets WHERE id = $1`,
+      [ticketId]
+    );
+
+    if (existingTicket.rows.length === 0) {
+      return res.status(404).json({
+        message: "Ticket not found.",
+      });
+    }
+
+    const previousAgentId = existingTicket.rows[0].assigned_agent_id;
 
     const result = await pool.query(
       `UPDATE tickets
@@ -220,11 +299,15 @@ const assignTicket = async (req, res) => {
       [parsedAgentId, ticketId]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Ticket not found.",
-      });
-    }
+    await logTicketActivity(
+      ticketId,
+      req.user.id,
+      "Agent Assigned",
+      previousAgentId === null
+        ? "Unassigned"
+        : `Agent ID: ${previousAgentId}`,
+      `Agent ID: ${parsedAgentId}`
+    );
 
     return res.status(200).json({
       message: "Ticket assigned successfully.",
@@ -238,7 +321,7 @@ const assignTicket = async (req, res) => {
   }
 };
 
-// 7. Agent updates the status of their assigned ticket
+// 9. Agent updates the status of their assigned ticket
 const updateTicketStatus = async (req, res) => {
   try {
     const ticketId = Number(req.params.id);
@@ -250,23 +333,36 @@ const updateTicketStatus = async (req, res) => {
       });
     }
 
-    if (
-      typeof status !== "string" ||
-      !validStatuses.includes(status.trim().toLowerCase())
-    ) {
+    const normalizedStatus =
+      typeof status === "string"
+        ? status.trim().toLowerCase().replace(/\s+/g, "_")
+        : "";
+
+    if (!validStatuses.includes(normalizedStatus)) {
       return res.status(400).json({
         message: "Status must be open, in progress, or resolved.",
       });
     }
 
-    const normalizedStatus = status.trim().toLowerCase();
+    const existingTicket = await pool.query(
+      `SELECT status FROM tickets
+       WHERE id = $1 AND assigned_agent_id = $2`,
+      [ticketId, req.user.id]
+    );
+
+    if (existingTicket.rows.length === 0) {
+      return res.status(404).json({
+        message: "Ticket not found or not assigned to you.",
+      });
+    }
+
+    const previousStatus = existingTicket.rows[0].status;
 
     const result = await pool.query(
       `UPDATE tickets
        SET status = $1,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2
-         AND assigned_agent_id = $3
+       WHERE id = $2 AND assigned_agent_id = $3
        RETURNING *`,
       [normalizedStatus, ticketId, req.user.id]
     );
@@ -276,6 +372,14 @@ const updateTicketStatus = async (req, res) => {
         message: "Ticket not found or not assigned to you.",
       });
     }
+
+    await logTicketActivity(
+      ticketId,
+      req.user.id,
+      "Status Updated",
+      previousStatus,
+      normalizedStatus
+    );
 
     return res.status(200).json({
       message: "Ticket status updated successfully.",
@@ -289,13 +393,14 @@ const updateTicketStatus = async (req, res) => {
   }
 };
 
-// Export all controller functions
 module.exports = {
   createTicket,
   getMyTickets,
+  getTickets,
   getTicketById,
   assignTicket,
   getAssignedTickets,
   getUnassignedTickets,
+  getAgents,
   updateTicketStatus,
 };

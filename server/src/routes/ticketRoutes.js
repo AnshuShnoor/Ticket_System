@@ -8,10 +8,12 @@ const authorizeRole = require("../middleware/authorizeRole");
 const {
   createTicket,
   getMyTickets,
+  getTickets,
   getTicketById,
   assignTicket,
   getAssignedTickets,
   getUnassignedTickets,
+  getAgents,
   updateTicketStatus,
 } = require("../controllers/ticketController");
 
@@ -23,7 +25,14 @@ router.post(
   createTicket
 );
 
-// Customer views their tickets
+// All tickets visible to the logged-in user
+router.get(
+  "/",
+  authenticateToken,
+  getTickets
+);
+
+// Customer views their own tickets
 router.get(
   "/my-tickets",
   authenticateToken,
@@ -47,6 +56,14 @@ router.get(
   getUnassignedTickets
 );
 
+// Admin views all agents
+router.get(
+  "/agents",
+  authenticateToken,
+  authorizeRole("admin"),
+  getAgents
+);
+
 // Admin assigns a ticket
 router.patch(
   "/:id/assign",
@@ -55,7 +72,7 @@ router.patch(
   assignTicket
 );
 
-// Agent updates the status of an assigned ticket
+// Agent updates ticket status
 router.patch(
   "/:id/status",
   authenticateToken,

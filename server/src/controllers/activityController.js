@@ -11,7 +11,7 @@ const getTicketActivity = async (req, res) => {
       });
     }
 
-    // Verify ticket exists and user has access
+    // 1. Verify ticket exists
     const ticketResult = await pool.query(
       `SELECT id, customer_id, assigned_agent_id
        FROM tickets
@@ -25,6 +25,7 @@ const getTicketActivity = async (req, res) => {
       });
     }
 
+    // 2. Check user access
     const ticket = ticketResult.rows[0];
     const role = req.user.role;
     const userId = Number(req.user.id);
@@ -45,25 +46,29 @@ const getTicketActivity = async (req, res) => {
       });
     }
 
+    // 3. Fetch ticket activity using actual database columns
     const result = await pool.query(
       `SELECT
          a.id,
          a.ticket_id,
-         a.user_id,
-         u.name AS user_name,
+         a.actor_id,
+         u.name AS actor_name,
          a.action,
-         a.details,
+         a.old_value,
+         a.new_value,
          a.created_at
        FROM ticket_activity a
-       LEFT JOIN users u ON u.id = a.user_id
+       LEFT JOIN users u ON u.id = a.actor_id
        WHERE a.ticket_id = $1
        ORDER BY a.created_at DESC`,
       [ticketId]
     );
 
+    // 4. Return activity history
     return res.status(200).json({
       activities: result.rows,
     });
+
   } catch (error) {
     console.error("Get ticket activity error:", error.message);
 
