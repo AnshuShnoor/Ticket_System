@@ -23,7 +23,6 @@ services:
   - type: web
     name: supportdesk-client
     runtime: static
-    plan: free
     rootDir: client
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
