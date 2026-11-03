@@ -18,7 +18,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CLIENT_ORIGIN
-        value: https://supportdesk-client.onrender.com
+        value: https://${{supportdesk-client.host}}
 
   - type: web
     name: supportdesk-client

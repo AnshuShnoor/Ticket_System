@@ -119,11 +119,9 @@ Express API, and PostgreSQL database.
 4. Open the URL for `supportdesk-client` to use the application.
 
 The Blueprint sets `VITE_API_URL` to the API service, configures the API to
-accept requests from the deployed client, connects PostgreSQL using
+accept requests from the deployed client URL, connects PostgreSQL using
 `DATABASE_URL`, enables database SSL, and generates `JWT_SECRET`. Do not
 replace generated secrets with values committed to this repository.
-If you change the static site's Render service name, update `CLIENT_ORIGIN`
-in `render.yaml` to match its `https://<service-name>.onrender.com` URL.
 
 The Blueprint uses Render's free plans. Free web services can spin down when
 idle, and free PostgreSQL databases are temporary; choose a persistent
