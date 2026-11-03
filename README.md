@@ -105,6 +105,36 @@ The exact folder structure may change as development continues.
 These are the ticket endpoints worked on so far. More endpoints may be
 added as the project develops.
 
+## Deploying on Render
+
+The root-level `render.yaml` is a Render Blueprint for the React static site,
+Express API, and PostgreSQL database.
+
+1. Push this repository to GitHub.
+2. In Render, choose **New → Blueprint**, connect the repository, and deploy
+   the Blueprint. Render will create the database and both services.
+3. Wait for the API and static-site deploys to finish. The API initializes
+   `database/schema.sql` before starting and exposes `/api/health` as its
+   health-check endpoint.
+4. Open the URL for `supportdesk-client` to use the application.
+
+The Blueprint sets `VITE_API_URL` to the API service, configures the API to
+accept requests from the deployed client, connects PostgreSQL using
+`DATABASE_URL`, enables database SSL, and generates `JWT_SECRET`. Do not
+replace generated secrets with values committed to this repository.
+If you change the static site's Render service name, update `CLIENT_ORIGIN`
+in `render.yaml` to match its `https://<service-name>.onrender.com` URL.
+
+The Blueprint uses Render's free plans. Free web services can spin down when
+idle, and free PostgreSQL databases are temporary; choose a persistent
+PostgreSQL plan before relying on the deployment for real customer data.
+Back up any data before changing or deleting a database.
+
+For local development, copy `server/.env.example` to `server/.env` and set
+your local PostgreSQL password. The client uses
+`VITE_API_URL=http://localhost:5000` by default; override it in
+`client/.env.local` if your API runs on a different URL.
+
 ## Getting Started
 
 ### Requirements
@@ -130,13 +160,18 @@ cd server
 npm install
 ```
 
-Create a `.env` file inside `server` and add the configuration required
-by your backend. For example:
+Copy `server/.env.example` to `server/.env` and set your local PostgreSQL
+password. You can use either a `DATABASE_URL` connection string or the
+individual `DB_*` settings:
 
 ``` env
 PORT=5000
-DATABASE_URL=your_postgresql_connection_string
-JWT_SECRET=your_private_jwt_secret
+DB_USER=postgres
+DB_HOST=localhost
+DB_NAME=ticket_system
+DB_PASSWORD=your_local_postgres_password
+DB_PORT=5432
+JWT_SECRET=replace-with-a-long-random-secret
 ```
 
 The variable names must match the ones used in your code. Do not upload

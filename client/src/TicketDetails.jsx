@@ -1,9 +1,10 @@
 
 import { useEffect, useState, useCallback } from "react";
+import { API_BASE_URL } from "./api";
 
-const TICKET_API = "http://localhost:5000/api/tickets";
-const MESSAGE_API = "http://localhost:5000/api/messages";
-const ACTIVITY_API = "http://localhost:5000/api/activity";
+const TICKET_API = `${API_BASE_URL}/api/tickets`;
+const MESSAGE_API = `${API_BASE_URL}/api/messages`;
+const ACTIVITY_API = `${API_BASE_URL}/api/activity`;
 
 function InfoItem({ label, value }) {
   return (

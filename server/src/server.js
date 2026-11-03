@@ -7,7 +7,26 @@ const app = express();
 const pool = require("./config/db");
 
 // Middleware
-app.use(cors());
+const configuredOrigins = (process.env.CLIENT_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      const isLocalDevelopmentOrigin =
+        process.env.NODE_ENV !== "production" &&
+        /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin || "");
+
+      if (!origin || configuredOrigins.includes(origin) || isLocalDevelopmentOrigin) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Origin is not allowed by CORS"));
+    },
+  })
+);
 app.use(express.json());
 
 // Health check
@@ -65,6 +84,6 @@ app.use("/api", (req, res) => {
 // Start server
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Backend running at http://localhost:${PORT}`);
 });

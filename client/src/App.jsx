@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import CreateTicket from "./createTicket";
 import TicketDetails from "./TicketDetails";
 import LandingPage from "./LandingPage";
+import { API_BASE_URL } from "./api";
 
 
 const initialForm = {
@@ -262,7 +263,7 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
         const headers = { Authorization: `Bearer ${token}` };
 
         const ticketResponse = await fetch(
-          "http://localhost:5000/api/tickets",
+          `${API_BASE_URL}/api/tickets`,
           { headers }
         );
         const ticketData = await ticketResponse.json().catch(() => ({}));
@@ -285,7 +286,7 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
 
         if (role === "admin") {
           const agentResponse = await fetch(
-            "http://localhost:5000/api/tickets/agents",
+            `${API_BASE_URL}/api/tickets/agents`,
             { headers }
           );
           const agentData = await agentResponse.json().catch(() => ({}));
@@ -332,7 +333,7 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/tickets/${ticketId}/assign`,
+        `${API_BASE_URL}/api/tickets/${ticketId}/assign`,
         {
           method: "PATCH",
           headers: {
@@ -377,7 +378,7 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
     setStatusError("");
 
     try {
-      const response = await fetch(`http://localhost:5000/api/tickets/${ticketId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -840,7 +841,7 @@ export default function App() {
               password: form.password,
             };
 
-      const response = await fetch(`http://localhost:5000${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
