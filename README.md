@@ -118,10 +118,11 @@ Express API, and PostgreSQL database.
    health-check endpoint.
 4. Open the URL for `supportdesk-client` to use the application.
 
-The Blueprint sets `VITE_API_URL` to the API service, configures the API to
-accept requests from the deployed client URL, connects PostgreSQL using
-`DATABASE_URL`, enables database SSL, and generates `JWT_SECRET`. Do not
-replace generated secrets with values committed to this repository.
+The Blueprint uses Render service references for `VITE_API_URL` and
+`CLIENT_ORIGIN`, connects PostgreSQL using `DATABASE_URL`, enables database
+SSL, and generates `JWT_SECRET`. The client adds HTTPS to the API hostname
+when needed. Do not replace generated secrets with values committed to this
+repository.
 
 The Blueprint uses Render's free plans. Free web services can spin down when
 idle, and free PostgreSQL databases are temporary; choose a persistent

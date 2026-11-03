@@ -10,7 +10,10 @@ const pool = require("./config/db");
 const configuredOrigins = (process.env.CLIENT_ORIGIN || "")
   .split(",")
   .map((origin) => origin.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  .map((origin) =>
+    origin.replace(/^https?:\/\//i, "").replace(/\/+$/, "").toLowerCase()
+  );
 
 app.use(
   cors({
@@ -18,8 +21,14 @@ app.use(
       const isLocalDevelopmentOrigin =
         process.env.NODE_ENV !== "production" &&
         /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin || "");
+      const isConfiguredOrigin = configuredOrigins.includes(
+        (origin || "")
+          .replace(/^https?:\/\//i, "")
+          .replace(/\/+$/, "")
+          .toLowerCase()
+      );
 
-      if (!origin || configuredOrigins.includes(origin) || isLocalDevelopmentOrigin) {
+      if (!origin || isConfiguredOrigin || isLocalDevelopmentOrigin) {
         return callback(null, true);
       }
 
