@@ -120,9 +120,9 @@ Express API, and PostgreSQL database.
 
 The Blueprint uses Render service references for `VITE_API_URL` and
 `CLIENT_ORIGIN`, connects PostgreSQL using `DATABASE_URL`, enables database
-SSL, and generates `JWT_SECRET`. The client adds HTTPS to the API hostname
-when needed. Do not replace generated secrets with values committed to this
-repository.
+SSL, and generates `JWT_SECRET`. The client and API normalize Render service
+host references to their public `.onrender.com` hostnames. Do not replace
+generated secrets with values committed to this repository.
 
 The Blueprint uses Render's free plans. Free web services can spin down when
 idle, and free PostgreSQL databases are temporary; choose a persistent
