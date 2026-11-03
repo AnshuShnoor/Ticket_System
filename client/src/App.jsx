@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import CreateTicket from "./createTicket";
 import TicketDetails from "./TicketDetails";
+import LandingPage from "./LandingPage";
 
 
 const initialForm = {
@@ -463,44 +464,44 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
 
   return (
     <div className="min-h-screen bg-slate-100 md:flex">
-      <aside className="flex w-full flex-col bg-slate-900 text-white md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:self-start">
-        <div className="flex items-center gap-3 border-b border-slate-700 px-6 py-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-xl font-bold">
+      <aside className="grid w-full grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto] items-center gap-x-3 gap-y-1 bg-slate-950 px-3 py-2 text-white md:sticky md:top-0 md:flex md:h-screen md:w-64 md:shrink-0 md:flex-col md:self-start md:bg-slate-900 md:p-0">
+        <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-2 border-0 px-1 py-1 md:w-full md:gap-3 md:border-b md:border-slate-700 md:px-6 md:py-5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-lg font-bold md:h-10 md:w-10 md:text-xl">
             S
           </div>
-          <span className="text-xl font-semibold">SupportDesk</span>
+          <span className="truncate text-base font-semibold md:text-xl">SupportDesk</span>
         </div>
 
-        <div className="flex items-center gap-3 border-b border-slate-700 px-5 py-4">
+        <div className="hidden min-w-0 items-center gap-3 border-0 px-1 py-1 md:flex md:w-full md:justify-self-auto md:border-b md:border-slate-700 md:px-5 md:py-4">
           <div
             aria-hidden="true"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-bold uppercase text-blue-200"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-xs font-bold uppercase text-blue-200 md:h-10 md:w-10 md:text-sm"
           >
             {String(user.name || role).charAt(0)}
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 md:flex-1">
             <p className="truncate text-sm font-semibold text-white">{user.name}</p>
-            <p className="mt-0.5 truncate text-xs text-slate-400">{user.email}</p>
-            <span className="mt-2 inline-flex rounded-full bg-blue-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-300">
+            <p className="mt-0.5 hidden truncate text-xs text-slate-400 md:block">{user.email}</p>
+            <span className="mt-1 hidden rounded-full bg-blue-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-300 md:mt-2 md:inline-flex">
               {role}
             </span>
           </div>
         </div>
 
-        <nav className="flex gap-2 p-4 md:flex-1 md:flex-col">
+        <nav className="col-span-2 row-start-2 flex min-w-0 gap-2 p-0 md:flex-1 md:flex-col md:p-4">
           <button
             type="button"
             onClick={() => {
               setActiveSection("dashboard");
               setNotice("");
             }}
-            className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left font-medium ${
+            className={`flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2 text-xs font-medium md:w-full md:flex-none md:justify-start md:gap-3 md:px-4 md:py-3 md:text-base ${
               activeSection === "dashboard"
                 ? "bg-blue-600 text-white"
                 : "text-slate-300 hover:bg-slate-800"
             }`}
           >
-            <span>▦</span> Dashboard
+            <span aria-hidden="true">▦</span> Dashboard
           </button>
 
           <button
@@ -509,28 +510,28 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
               setActiveSection("tickets");
               setNotice("");
             }}
-            className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left font-medium ${
+            className={`flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2 text-xs font-medium md:w-full md:flex-none md:justify-start md:gap-3 md:px-4 md:py-3 md:text-base ${
               activeSection === "tickets"
                 ? "bg-blue-600 text-white"
                 : "text-slate-300 hover:bg-slate-800"
             }`}
           >
-            <span>▤</span> Tickets
+            <span aria-hidden="true">▤</span> Tickets
           </button>
         </nav>
 
-        <div className="border-t border-slate-700 p-4 md:mt-auto">
+        <div className="col-start-2 row-start-1 border-0 p-0 md:mt-auto md:w-full md:border-t md:border-slate-700 md:p-4">
           <button
             type="button"
             onClick={onLogout}
-            className="mt-4 w-full rounded-lg border border-slate-600 px-4 py-2 text-sm hover:bg-slate-800"
+            className="min-h-10 w-auto whitespace-nowrap rounded-lg border border-slate-600 px-2 py-2 text-xs hover:bg-slate-800 md:mt-4 md:w-full md:px-4 md:text-sm"
           >
             Sign out
           </button>
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 p-5 sm:p-8">
+      <main className="min-w-0 flex-1 p-4 sm:p-8">
         <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <p className="text-sm text-slate-500">
@@ -550,7 +551,7 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
           <button
             type="button"
             onClick={handleCreateTicket}
-            className="rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700"
+            className="min-h-11 rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700"
           >
             {role === "admin"
               ? "Manage Tickets"
@@ -577,11 +578,11 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
         )}
 
         {activeSection === "dashboard" && (
-        <section className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4 xl:grid-cols-4">
           {ticketStats.map((stat) => (
             <div
               key={stat.label}
-              className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+              className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
             >
               <p className="text-sm text-slate-500">{stat.label}</p>
               <p className={`mt-3 text-3xl font-bold ${stat.color}`}>
@@ -649,6 +650,9 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
             </span>
           </div>
 
+          <p className="border-b border-slate-100 px-5 py-2 text-xs text-slate-400 sm:hidden">
+            Swipe horizontally to see all ticket details.
+          </p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[650px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500">
@@ -780,7 +784,7 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
 
 export default function App() {
   const [user, setUser] = useState(getSavedUser);
-  const [page, setPage] = useState(() => (user ? "dashboard" : "login"));
+  const [page, setPage] = useState(() => (user ? "dashboard" : "home"));
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -889,7 +893,7 @@ export default function App() {
     setUser(null);
     setForm(initialForm);
     setError("");
-    setPage("login");
+    setPage("home");
   }
 
   if (page === "create-ticket" && user && user.role === "customer") {
@@ -919,6 +923,15 @@ export default function App() {
           setSelectedTicketId(ticketId);
           setPage("ticket-details");
         }}
+      />
+    );
+  }
+
+  if (page === "home") {
+    return (
+      <LandingPage
+        onLogin={() => switchPage("login")}
+        onSignup={() => switchPage("register")}
       />
     );
   }
@@ -954,6 +967,14 @@ export default function App() {
 
         <section className="flex items-center p-7 sm:p-12">
           <div className="w-full">
+            <button
+              type="button"
+              onClick={() => switchPage("home")}
+              className="mb-8 text-sm font-semibold text-slate-500 transition hover:text-indigo-600"
+            >
+              ← Back to SupportDesk
+            </button>
+
             <div className="mb-8 md:hidden">
               <span className="text-xl font-bold text-slate-900">
                 SupportDesk
