@@ -47,6 +47,189 @@ function getDashboardTitle(role) {
   return "Customer Dashboard";
 }
 
+function getTicketBreakdown(tickets, field, preferredOrder = []) {
+  const counts = tickets.reduce((result, ticket) => {
+    const value = String(ticket[field] || "unspecified")
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, " ");
+    result[value] = (result[value] || 0) + 1;
+    return result;
+  }, {});
+
+  const order = [
+    ...preferredOrder.filter((value) => counts[value]),
+    ...Object.keys(counts)
+      .filter((value) => !preferredOrder.includes(value))
+      .sort(),
+  ];
+
+  return order.map((value) => ({ value, count: counts[value] }));
+}
+
+function formatAnalyticsLabel(value) {
+  return value.replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function Breakdown({ title, items, maxCount, colors, emptyMessage }) {
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h3 className="font-semibold text-slate-900">{title}</h3>
+      {items.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-500">{emptyMessage}</p>
+      ) : (
+        <div className="mt-4 space-y-4">
+          {items.map((item) => (
+            <div key={item.value}>
+              <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
+                <span className="font-medium capitalize text-slate-600">
+                  {formatAnalyticsLabel(item.value)}
+                </span>
+                <span className="font-semibold tabular-nums text-slate-800">
+                  {item.count}
+                </span>
+              </div>
+              <div
+                className="h-2 overflow-hidden rounded-full bg-slate-100"
+                role="img"
+                aria-label={`${formatAnalyticsLabel(item.value)}: ${item.count} tickets`}
+              >
+                <div
+                  className={`h-full rounded-full transition-all ${colors[item.value] || "bg-violet-500"}`}
+                  style={{ width: `${(item.count / maxCount) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TicketAnalytics({ tickets }) {
+  const [today] = useState(() => new Date());
+  const week = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today);
+    date.setHours(12, 0, 0, 0);
+    date.setDate(today.getDate() - (6 - index));
+    const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    return {
+      dateKey,
+      label: date.toLocaleDateString(undefined, { weekday: "short" }),
+      fullDate: date.toLocaleDateString(),
+      count: 0,
+    };
+  });
+
+  tickets.forEach((ticket) => {
+    const createdAt = new Date(ticket.created_at || ticket.createdAt);
+    if (Number.isNaN(createdAt.getTime())) return;
+    const dateKey = `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, "0")}-${String(createdAt.getDate()).padStart(2, "0")}`;
+    const day = week.find((item) => item.dateKey === dateKey);
+    if (day) day.count += 1;
+  });
+
+  const statusBreakdown = getTicketBreakdown(tickets, "status", [
+    "open",
+    "in progress",
+    "resolved",
+    "closed",
+  ]);
+  const priorityBreakdown = getTicketBreakdown(tickets, "priority", [
+    "urgent",
+    "high",
+    "medium",
+    "low",
+  ]);
+  const maxDailyCount = Math.max(...week.map((day) => day.count), 1);
+  const maxStatusCount = Math.max(...statusBreakdown.map((item) => item.count), 1);
+  const maxPriorityCount = Math.max(...priorityBreakdown.map((item) => item.count), 1);
+  const statusColors = {
+    open: "bg-amber-500",
+    "in progress": "bg-blue-600",
+    resolved: "bg-green-500",
+    closed: "bg-slate-500",
+    unspecified: "bg-slate-400",
+  };
+  const priorityColors = {
+    urgent: "bg-red-500",
+    high: "bg-orange-500",
+    medium: "bg-blue-500",
+    low: "bg-slate-400",
+    unspecified: "bg-slate-400",
+  };
+
+  return (
+    <section className="mt-6">
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-slate-900">Ticket Analytics</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          A live overview of ticket volume, status, and priority.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 xl:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-slate-900">Tickets created</h3>
+              <p className="mt-1 text-sm text-slate-500">Daily activity over the last 7 days</p>
+            </div>
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+              {week.reduce((total, day) => total + day.count, 0)} this week
+            </span>
+          </div>
+
+          <div
+            className="mt-6 grid h-48 grid-cols-7 gap-2 border-b border-slate-200 bg-[linear-gradient(to_bottom,transparent_24.5%,#e2e8f0_25%,transparent_25.5%,transparent_49.5%,#e2e8f0_50%,transparent_50.5%,transparent_74.5%,#e2e8f0_75%,transparent_75.5%)] sm:gap-4"
+            role="img"
+            aria-label={`Tickets created over the last 7 days: ${week.map((day) => `${day.fullDate}: ${day.count}`).join(", ")}`}
+          >
+            {week.map((day) => (
+              <div
+                key={day.dateKey}
+                className="flex min-w-0 flex-col items-center justify-end gap-2"
+                title={`${day.fullDate}: ${day.count} tickets`}
+              >
+                <span className="text-xs font-semibold tabular-nums text-slate-600">
+                  {day.count}
+                </span>
+                <div className="flex h-32 w-full items-end justify-center">
+                  <div
+                    className="w-full max-w-10 rounded-t-md bg-gradient-to-t from-blue-700 to-blue-500 transition-all"
+                    style={{
+                      height: `${day.count ? Math.max((day.count / maxDailyCount) * 100, 8) : 3}%`,
+                    }}
+                  />
+                </div>
+                <span className="text-xs font-medium text-slate-500">{day.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div className="space-y-4">
+          <Breakdown
+            title="By status"
+            items={statusBreakdown}
+            maxCount={maxStatusCount}
+            colors={statusColors}
+            emptyMessage="No ticket status data yet."
+          />
+          <Breakdown
+            title="By priority"
+            items={priorityBreakdown}
+            maxCount={maxPriorityCount}
+            colors={priorityColors}
+            emptyMessage="No ticket priority data yet."
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
   const [notice, setNotice] = useState("");
   const [tickets, setTickets] = useState([]);
@@ -280,12 +463,28 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
 
   return (
     <div className="min-h-screen bg-slate-100 md:flex">
-      <aside className="flex w-full flex-col bg-slate-900 text-white md:min-h-screen md:w-64 md:shrink-0">
+      <aside className="flex w-full flex-col bg-slate-900 text-white md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:self-start">
         <div className="flex items-center gap-3 border-b border-slate-700 px-6 py-5">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-xl font-bold">
             S
           </div>
           <span className="text-xl font-semibold">SupportDesk</span>
+        </div>
+
+        <div className="flex items-center gap-3 border-b border-slate-700 px-5 py-4">
+          <div
+            aria-hidden="true"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-bold uppercase text-blue-200"
+          >
+            {String(user.name || role).charAt(0)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-white">{user.name}</p>
+            <p className="mt-0.5 truncate text-xs text-slate-400">{user.email}</p>
+            <span className="mt-2 inline-flex rounded-full bg-blue-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-300">
+              {role}
+            </span>
+          </div>
         </div>
 
         <nav className="flex gap-2 p-4 md:flex-1 md:flex-col">
@@ -320,12 +519,7 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
           </button>
         </nav>
 
-        <div className="border-t border-slate-700 p-4">
-          <p className="truncate text-sm font-medium">{user.name}</p>
-          <p className="mt-1 truncate text-xs text-slate-400">{user.email}</p>
-          <p className="mt-2 inline-flex rounded-full bg-blue-500/15 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-blue-300">
-            {role}
-          </p>
+        <div className="border-t border-slate-700 p-4 md:mt-auto">
           <button
             type="button"
             onClick={onLogout}
@@ -397,6 +591,10 @@ function Dashboard({ user, onLogout, onCreateTicket, onViewTicket }) {
             </div>
           ))}
         </section>
+        )}
+
+        {role === "admin" && activeSection === "dashboard" && !ticketsLoading && !ticketsError && (
+          <TicketAnalytics tickets={tickets} />
         )}
 
         {statusMessage && (
