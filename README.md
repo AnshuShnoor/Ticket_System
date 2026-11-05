@@ -1,273 +1,214 @@
-[README.md](https://github.com/user-attachments/files/33965858/README.md)
-# Customer Support Ticket Management System
+﻿# SupportDesk
 
-## About the Project
+SupportDesk is a full-stack customer support ticket management system built to streamline issue tracking, support workflows, and role-based handling for customers, agents, and administrators.
 
-This is my internship project, a Customer Support Ticket Management
-System. The main goal is to manage customer complaints and support
-requests in one place. Customers can create a ticket when they face a
-problem, and the system stores the ticket in the database so it can be
-tracked later.
+This project is now complete and includes a secure backend, role-based access control, PostgreSQL data storage, and a React-based dashboard for managing support tickets.
 
-The application is being developed with separate roles for customers,
-support agents, and admins. I am building it step by step to practise
-full-stack development and understand how the frontend, backend,
-authentication, and database work together.
+## Project Status
 
-## Project Goals
+Completed and deployed -------- https://supportdesk-client-1fhf.onrender.com/
 
--   Let users register and log in.
--   Store passwords securely using password hashing.
--   Protect APIs using JWT authentication.
--   Allow customers to create support tickets.
--   Save ticket information in PostgreSQL.
--   Let customers view their own tickets.
--   Use separate permissions for customer, agent, and admin roles.
--   Make it easier to track tickets and their status.
--   Provide a simple dashboard for ticket information.
+## Overview
 
-## Technologies Used
+SupportDesk allows:
 
-**Frontend:** React.js, Vite, Tailwind CSS\
-**Backend:** Node.js, Express.js\
-**Database:** PostgreSQL\
-**Authentication:** JWT and bcrypt\
-**Tools:** Visual Studio Code, Postman, pgAdmin, Git, GitHub
+- Customers to register, sign in, and submit support tickets.
+- Agents to review assigned tickets, update their status, and respond through the ticket workflow.
+- Admins to manage the ticket queue and assign tickets to agents.
+- Teams to track ticket activity, status changes, and issue history.
 
-## Main Features
+## Features
 
-### 1. Registration and Login
+- User registration and login
+- Password hashing using bcrypt
+- JWT-based authentication
+- Role-based authorization for customer, agent, and admin users
+- Ticket creation with subject, description, category, and priority
+- Ticket listing and filtering by role
+- Ticket detail view
+- Ticket status updates
+- Ticket assignment to support agents
+- Ticket activity logging
+- Message-based ticket communication
+- Dashboard analytics for ticket volume and status distribution
+- Render deployment configuration
+- Health-check endpoint for backend monitoring
 
-Users can register and log in. Passwords are hashed before being stored
-in the database. JWT tokens are used for protected API requests.
+## Tech Stack
 
-### 2. Role-Based Access
-
-The project includes customer, agent, and admin roles. Access to routes
-can be restricted based on the logged-in user's role.
-
-### 3. Create a Ticket
-
-Customers can submit a ticket with a subject, description, category, and
-priority. The ticket is saved in PostgreSQL.
-
-### 4. View My Tickets
-
-Customers can request their own tickets through the backend API. The
-customer dashboard is being connected to this API to display ticket
-data.
-
-### 5. View a Ticket by ID
-
-An API route is being added to fetch a ticket using its ID. Customer
-access is checked so that a customer cannot view another customer's
-ticket.
-
-### 6. Dashboard
-
-The frontend has role-based dashboard views. The customer dashboard is
-being connected to live ticket data from the backend.
+- Frontend: React, Vite, Tailwind CSS
+- Backend: Node.js, Express.js
+- Database: PostgreSQL
+- Authentication: JWT + bcrypt
+- Deployment: Render
+- Tools: Postman, pgAdmin, Git, GitHub
 
 ## Project Structure
 
-``` text
-customer-support-ticket-management-system/
-├── client/                 # React frontend
+```text
+Ticket_System/
+├── client/                  # React frontend
+│   ├── public/
 │   └── src/
-├── server/                 # Node.js and Express backend
-│   └── src/
-│       ├── config/          # Database configuration
-│       ├── controllers/     # Request handling logic
-│       ├── middleware/      # Authentication and role checks
-│       └── routes/          # API routes
-└── README.md
+├── database/
+│   └── schema.sql           # Database schema
+├── server/
+│   ├── src/
+│   └── package.json
+├── render.yaml              # Render deployment blueprint
+├── README.md
+└── .gitignore
 ```
 
-The exact folder structure may change as development continues.
+## Database Schema
 
-## APIs
+The PostgreSQL schema includes:
 
-  ---------------------------------------------------------------------------
-  Method                  Endpoint                    Purpose
-  ----------------------- --------------------------- -----------------------
-  POST                    `/api/tickets`              Create a ticket
-                                                      (customer login
-                                                      required)
+- users
+- tickets
+- messages
+- ticket_activity
 
-  GET                     `/api/tickets/my-tickets`   Get the logged-in
-                                                      customer's tickets
+The database structure is defined in `database/schema.sql` and is initialized by the backend setup flow.
 
-  GET                     `/api/tickets/:id`          Get a ticket by ID
-                                                      (authentication
-                                                      required)
-  ---------------------------------------------------------------------------
+## API Overview
 
-These are the ticket endpoints worked on so far. More endpoints may be
-added as the project develops.
+### Authentication
 
-## Deploying on Render
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/auth/register` | Register a new user |
+| POST | `/api/auth/login` | Login and receive JWT |
 
-The root-level `render.yaml` is a Render Blueprint for the React static site,
-Express API, and PostgreSQL database.
+### Tickets
 
-1. Push this repository to GitHub.
-2. In Render, choose **New → Blueprint**, connect the repository, and deploy
-   the Blueprint. Render will create the database and both services.
-3. Wait for the API and static-site deploys to finish. The API initializes
-   `database/schema.sql` before starting and exposes `/api/health` as its
-   health-check endpoint.
-4. Open the URL for `supportdesk-client` to use the application.
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/tickets` | Create a support ticket |
+| GET | `/api/tickets` | Get tickets based on user role |
+| GET | `/api/tickets/my-tickets` | Get the current customer's tickets |
+| GET | `/api/tickets/:id` | View a single ticket |
+| PATCH | `/api/tickets/:id/status` | Update ticket status |
+| PATCH | `/api/tickets/:id/assign` | Assign a ticket to an agent |
 
-The Blueprint uses Render service references for `VITE_API_URL` and
-`CLIENT_ORIGIN`, connects PostgreSQL using `DATABASE_URL`, enables database
-SSL, and generates `JWT_SECRET`. The client and API normalize Render service
-host references to their public `.onrender.com` hostnames. Do not replace
-generated secrets with values committed to this repository.
+### Messages and Activity
 
-The Blueprint uses Render's free plans. Free web services can spin down when
-idle, and free PostgreSQL databases are temporary; choose a persistent
-PostgreSQL plan before relying on the deployment for real customer data.
-Back up any data before changing or deleting a database.
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/messages` | Add a message to a ticket |
+| GET | `/api/activity` | Fetch ticket activity history |
 
-For local development, copy `server/.env.example` to `server/.env` and set
-your local PostgreSQL password. The client uses
-`VITE_API_URL=http://localhost:5000` by default; override it in
-`client/.env.local` if your API runs on a different URL.
+### System
 
-## Getting Started
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/` | Backend home route |
+| GET | `/api/health` | Service health check |
 
-### Requirements
+## Prerequisites
 
--   Node.js and npm
--   PostgreSQL
--   Git
--   Visual Studio Code or another code editor
+Before running the project locally, make sure you have:
 
-### 1. Clone the Repository
+- Node.js and npm
+- PostgreSQL installed and running
+- Git
+- A code editor such as VS Code
 
-``` bash
+## Local Setup
+
+### 1. Clone the repository
+
+```bash
 git clone <your-repository-url>
-cd <your-project-folder>
+cd Ticket_System
 ```
 
-Replace the placeholders with your repository URL and folder name.
+### 2. Set up the backend
 
-### 2. Set Up the Backend
-
-``` bash
+```bash
 cd server
 npm install
 ```
 
-Copy `server/.env.example` to `server/.env` and set your local PostgreSQL
-password. You can use either a `DATABASE_URL` connection string or the
-individual `DB_*` settings:
+Create a `.env` file inside the `server` folder with values similar to the following:
 
-``` env
+```env
 PORT=5000
 DB_USER=postgres
 DB_HOST=localhost
 DB_NAME=ticket_system
 DB_PASSWORD=your_local_postgres_password
 DB_PORT=5432
-JWT_SECRET=replace-with-a-long-random-secret
+JWT_SECRET=your_super_secret_key
 ```
 
-The variable names must match the ones used in your code. Do not upload
-real passwords, database credentials, or JWT secrets to GitHub.
+You can also use a single `DATABASE_URL` value if preferred.
 
-Start the backend using the script configured in `server/package.json`.
-If a `dev` script is available, run:
+### 3. Initialize the database
 
-``` bash
+Create the PostgreSQL database and run the schema:
+
+```bash
+createdb ticket_system
+psql -d ticket_system -f ../database/schema.sql
+```
+
+Or use the backend init script:
+
+```bash
+npm run db:init
+```
+
+### 4. Start the backend
+
+```bash
 npm run dev
 ```
 
-The backend has been using port `5000` during development.
+The API will run on:
 
-### 3. Set Up the Frontend
+```text
+http://localhost:5000
+```
 
-Open another terminal:
+### 5. Set up the frontend
 
-``` bash
+Open a new terminal and run:
+
+```bash
 cd client
 npm install
 npm run dev
 ```
 
-Vite will show the local frontend URL in the terminal. The frontend has
-been running at `http://localhost:5173`.
+The frontend will run on the Vite local URL, usually:
 
-### 4. Set Up the Database
-
--   Start PostgreSQL.
--   Create the project database.
--   Add your local database connection details to the backend
-    environment file.
--   Create the required tables before testing the APIs.
-
-The project tables include users, tickets, messages, and ticket
-activity. Make sure their columns match the SQL queries used in the
-current backend code.
-
-## Testing
-
-I have been using Postman to test the backend APIs and pgAdmin to check
-whether ticket records are saved in PostgreSQL.
-
-For protected endpoints, add a valid JWT token under **Authorization →
-Bearer Token** in Postman.
-
-Example requests:
-
-``` http
-GET http://localhost:5000/api/tickets/my-tickets
-GET http://localhost:5000/api/tickets/1
+```text
+http://localhost:5173
 ```
 
-Use a ticket ID that exists in your database. The response depends on
-the logged-in user's permissions and the available data.
+## Live Demo
 
-## Current Progress
+Deployed application: https://supportdesk-client-1fhf.onrender.com/
 
-The work completed or worked on so far includes:
-
--   Frontend and backend setup.
--   PostgreSQL connection.
--   Registration and login functionality.
--   Password hashing and JWT authentication.
--   Role-based authorization middleware.
--   Ticket creation API.
--   API to fetch the logged-in customer's tickets.
--   Testing ticket creation and checking saved records in PostgreSQL.
--   Connecting the customer dashboard to fetch ticket data from the API.
--   Adding the ticket-by-ID route and working through its test.
-
-The display of live tickets on the dashboard still needs to be checked
-in the browser. Ticket details, conversations, assignment, status
-updates, and activity history are planned for the next stages.
-
-## Planned Improvements
-
--   Finish and verify the customer ticket list UI.
--   Show complete details when a ticket is opened.
--   Add messages between customers and support agents.
--   Add ticket assignment and status updates.
--   Show ticket activity history.
--   Improve dashboard filters and summary information.
--   Test permissions for all roles.
--   Improve error handling and the user interface.
+SupportDesk is live and ready to use.
 
 ## Security Notes
 
--   Store password hashes, not plain-text passwords.
--   Keep the JWT secret and database credentials private.
--   Do not commit `.env` files to GitHub.
--   Verify authentication and permissions on protected APIs.
+- Never commit `.env` files to GitHub.
+- Store password hashes instead of plain-text passwords.
+- Keep JWT secrets and database credentials private.
+- Validate authorization checks on all protected routes.
+
+## Usage Flow
+
+1. Sign up or log in.
+2. Create a support ticket.
+3. View ticket details and update status as needed.
+4. Assign tickets to agents if you are an admin.
+5. Communicate through ticket messages.
+6. Monitor ticket activity and dashboard analytics.
 
 ## Author
 
-This project is being developed by me as part of my internship work. It
-helps me practise full-stack web development, API development,
-authentication, database handling, and connecting a frontend with a
-backend.
+This project was developed as a full-stack support ticket management application to practice and demonstrate practical work with React, Express, PostgreSQL, authentication, authorization, and deployment workflows.
